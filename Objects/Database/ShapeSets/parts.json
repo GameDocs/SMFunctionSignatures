@@ -35,8 +35,8 @@
 			"rotationSet": "PropYZ",
 			"scripted" : 
 			{
-				"filename": "$MOD_DATA/Scripts/SignatureGenerator.lua",
-				"classname": "SignatureGenerator"
+				"filename": "$MOD_DATA/Scripts/SigPart.lua",
+				"classname": "SigPart"
 			},
 			"color": "00ff00",
 			"box": { "x": 1, "y": 1, "z": 1 },
