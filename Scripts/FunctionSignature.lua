@@ -10,8 +10,6 @@ function FunctionSignature.new( func, name, types, environment )
     object.environment = environment
 
     object.signature = {
-        params = {},
-        returns = {},
         paramsMin = nil,
         paramsMax = nil
     }
@@ -35,7 +33,7 @@ function FunctionSignature:getTypeName( variable )
         local tabletypes = "table {"
 
         for k, v in ipairs(variable) do
-            tabletypes = tabletypes .. getTypeName(v)
+            tabletypes = tabletypes .. self:getTypeName(v)
 
             -- Add separator
             if k ~= #variable then
@@ -64,6 +62,10 @@ function FunctionSignature:debug( ... )
     end
 end
 
+function FunctionSignature:error( ... )
+    self:debug("\x1B[91mERROR:", ...)
+end
+
 
 
 function FunctionSignature:generate()
@@ -78,11 +80,28 @@ function FunctionSignature:generate()
     self:debug("paramsMax =", self.signature.paramsMax)
 
     local workingParams = {}
-    for index = 1, self.signature.paramsMax do
-        workingParams[index] = self:findWorkingParams(index, workingParams)
+
+    -- Fill it with values we know (most likely) won't work
+    for i = 1, self.signature.paramsMax do
+        workingParams[i] = true
     end
 
-    self:debug(workingParams)
+    for i = 1, self.signature.paramsMax do
+        local complete, argument, instance = self:findWorkingParams(workingParams)
+
+        if complete == -1 then
+            -- An error occured that can't be fixed by using different parameters
+            return self.signature
+        elseif complete then
+            break
+        else
+            workingParams[argument] = instance
+        end
+    end
+
+    self:debug("Working parameters:", workingParams)
+
+    self:getReturnTypes(unpack(workingParams))
 
     return self.signature
 end
@@ -126,17 +145,17 @@ function FunctionSignature:findParamsMin()
 
     local expected, got = string.match(err, "Expected (%d+) arguments %(got (%d+)%)")
     if expected then
-        self.signature.paramsMin = expected
+        self.signature.paramsMin = tonumber(expected)
         return expected
     end
 
     local expected, got = string.match(err, "Expected at least (%d+) arguments %(got (%d+)%)")
     if expected then
-        self.signature.paramsMin = expected
+        self.signature.paramsMin = tonumber(expected)
         return expected
     end
 
-    error("Failed to get minimum amount of parameters: " .. "expected=" .. tostring(expected) .. ", got=" .. tostring(got) .. ", full=" .. tostring(err))
+    error("Failed to get minimum amount of parameters: " .. "expected=" .. expected .. ", got=" .. got .. ", full=" .. tostring(err))
 end
 
 function FunctionSignature:findParamsMax()
@@ -155,31 +174,24 @@ function FunctionSignature:findParamsMax()
 
     local expected, got = string.match(err, "Expected (%d+) arguments %(got (%d+)%)")
     if expected then
-        self.signature.paramsMax = expected
+        self.signature.paramsMax = tonumber(expected)
         return expected
     end
 
     local expected, got = string.match(err, "Expected at most (%d+) arguments %(got (%d+)%)")
     if expected then
-        self.signature.paramsMax = expected
+        self.signature.paramsMax = tonumber(expected)
         return expected
     end
 
-    error("Failed to get maximum amount of parameters: " .. "expected=" .. tostring(expected) .. ", got=" .. tostring(got) .. ", full=" .. tostring(err))
+    error("Failed to get maximum amount of parameters: " .. "expected=" .. expected .. ", got=" .. got .. ", full=" .. tostring(err))
 end
 
-function FunctionSignature:findWorkingParams( index, workingParams )
-    -- Array of parameters we're going to try
+function FunctionSignature:findWorkingParams( workingParams )
+    -- Make a copy of the parameters that work
     local params = {}
-
-    -- Fill it with values we know (most likely) won't work
-    for i = 1, self.signature.paramsMax do
-        params[i] = true
-    end
-
-    -- Replace some values with parameters we know that work
     for k, v in ipairs(workingParams) do
-        params[k] = v[1] -- Get the first of the parameters that work
+        params[k] = v
     end
 
 
@@ -191,18 +203,7 @@ function FunctionSignature:findWorkingParams( index, workingParams )
 
     if result[1] then
         self:debug("Success", result[2])
-        
-
-        -- signature.params[i] = signature.params[i] or {}
-        -- signature.params[i].type = signature.params[i].type or {}
-        -- table.insert(signature.params[i].type, typeName)
-
-        -- table.remove(result, 1)
-
-        -- signature.returns = {}
-        -- for _, v in ipairs(result) do
-        --     table.insert(signature.returns, {type = getTypeName(v)})
-        -- end
+        return true
     else
         local err = result[2]
 
@@ -210,18 +211,18 @@ function FunctionSignature:findWorkingParams( index, workingParams )
             local argument, expected, got = string.match(err, "bad argument #(%d+) to '.-' %((%w+) expected, got (%w+)%)")
             
             if expected == nil or got == nil then
-                error("Failed trying amount of parameters of " .. tostring(i) .. ": " .. "expected=" .. tostring(expected) .. ", got=" .. tostring(got) .. ", full=" .. tostring(err))
+                self:error("Failed trying amount of parameters of " .. tostring(i) .. ": " .. "expected=" .. tostring(expected) .. ", got=" .. tostring(got) .. ", full=" .. tostring(err))
+                return -1
             end
             
             self:debug("Trying to find instance of type", expected)
             local instance = self:getTypeInstanceByName(expected) or self:getTypeInstanceByName("<" .. expected .. ">") or expected
             self:debug("Found", instance)
 
-            workingParams[argument] = workingParams[argument] or {}
-            table.insert(workingParams[argument], instance)
-
-            return workingParams[argument]
+            return false, tonumber(argument), instance
         end
+
+        return -1
     end
 end
 
@@ -243,4 +244,25 @@ function FunctionSignature:shouldIgnoreRuntimeError( err )
     end
     
     return false
+end
+
+function FunctionSignature:getReturnTypes( ... )
+    self:debug("Getting return type with parameters", ...)
+
+    local result = { pcall(self.func, ...) }
+    self:debug(result)
+
+    if not result[1] then
+        self:error("Execution failed: " .. result[2])
+        return
+    end
+
+    self.signature.returns = {}
+    for i = 2, #result do
+        table.insert(self.signature.returns, {
+            type = self:getTypeName(result[i])
+        })
+    end
+
+    return self.signature.returns
 end

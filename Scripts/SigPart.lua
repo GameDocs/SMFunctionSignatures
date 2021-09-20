@@ -26,6 +26,7 @@ function SigPart:sv_generateSignatures()
     local types = { -- TODO
         ["boolean"] = true,          
         ["number"] = 13.37,
+        ["integer"] = 8,
         ["string"] = "sample text",
         ["table"] = {foo = "bar"},
         ["<Uuid>"] = sm.uuid.new("b4ae94a6-d11c-4503-9b87-1c008ab8d2df"),
