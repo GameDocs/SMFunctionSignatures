@@ -63,7 +63,12 @@ function FunctionSignature:debug( ... )
 end
 
 function FunctionSignature:error( ... )
-    self:debug("\x1B[91mERROR:", ...)
+    if debug then
+        local file, line = debug.traceback():match("^.-\n.-\n.-\t%[string \"(.-)\"%]:(%d+):")
+        print("\x1B[37m[" .. file .. ":" .. line .. "] " .. self.name .. ": \x1B[91mERROR:", ...)
+    else
+        print(self.name .. ": ERROR:", ...)
+    end
 end
 
 
@@ -81,8 +86,14 @@ function FunctionSignature:generate()
 
     local initialParams = self:findInitialParams()
     self:debug("Initial parameters =", initialParams)
+    if not initialParams then
+        return self.signature
+    end
 
     self:getReturnTypes(unpack(initialParams))
+
+    self.signature.params = self:findAllParams(initialParams)
+    self:debug("All parameters found =", self.signature.params)
 
     return self.signature
 end
@@ -193,13 +204,26 @@ function FunctionSignature:findInitialParams()
             if not self:shouldIgnoreRuntimeError(err) then
                 local argument, expected, got = string.match(err, "bad argument #(%d+) to '.-' %((%w+) expected, got (%w+)%)")
                 
-                if expected == nil or got == nil then
+                if argument == nil or expected == nil or got == nil then
                     self:error("Failed trying amount of parameters of " .. tostring(i) .. ": " .. "expected=" .. tostring(expected) .. ", got=" .. tostring(got) .. ", full=" .. tostring(err))
+                    return -1
+                end
+
+                self:debug(tonumber(argument), self.signature.paramsMax)
+                if tonumber(argument) > self.signature.paramsMax then
+                    -- I think this has something to do with how Lua works with the stack
+                    self:error("Parameter of type table has invalid content! " .. err)
                     return -1
                 end
                 
                 self:debug("Trying to find instance of type", expected)
-                local instance = self:getTypeInstanceByName(expected) or self:getTypeInstanceByName("<" .. expected .. ">") or expected
+                local instance = self:getTypeInstanceByName(expected) or self:getTypeInstanceByName("<" .. expected .. ">")
+
+                if not instance then
+                    self:error("Unable to find instance of type " .. expected)
+                    return -1
+                end
+
                 self:debug("Found", instance)
 
                 return false, tonumber(argument), instance
@@ -217,12 +241,13 @@ function FunctionSignature:findInitialParams()
     end
 
     -- Repeatedly try calling the function, changing the parameter when the error tells us to
-    for i = 1, self.signature.paramsMax do
+    -- Once for each parameter, +1 to check if parameters of type table throw errors
+    for i = 1, self.signature.paramsMax + 1 do
         local complete, argument, instance = try(initialParams)
 
         if complete == -1 then
             -- An error occured that can't be fixed by using different parameters
-            return self.signature
+            return nil
         elseif complete then
             break
         else
@@ -234,19 +259,21 @@ function FunctionSignature:findInitialParams()
 end
 
 function FunctionSignature:shouldIgnoreRuntimeError( err )
-    if err == "Unknown userdata received" then
-        return true
-    elseif err == "Expected userdata, got boolean" then
-        return true
-    elseif err == "Created shape expected the uuid of a block, received: {" .. tostring(self:getTypeInstanceByName("<Uuid>")) .. "}" then
-        return true
-    elseif err == "Uuid {" .. tostring(self:getTypeInstanceByName("<Uuid>")) .. "} is not of block type" then
-        return true
-    elseif err == "Effect not found: '" .. tostring(self:getTypeInstanceByName("string")) .. "'" then
-        return true
-    elseif err == tostring(self:getTypeInstanceByName("string")) .. " is not located in a valid directory" then
-        return true
-    elseif err == "Only uuids of block type can be validated" then
+    if err == "Unknown userdata received"
+        or err == "Expected userdata, got boolean"
+        or err == "Created shape expected the uuid of a block, received: {" .. tostring(self:getTypeInstanceByName("<Uuid>")) .. "}"
+        or err == "Uuid {" .. tostring(self:getTypeInstanceByName("<Uuid>")) .. "} is not of block type"
+        or err == "Effect not found: '" .. tostring(self:getTypeInstanceByName("string")) .. "'"
+        or err == tostring(self:getTypeInstanceByName("string")) .. " is not located in a valid directory"
+        or err == "Only uuids of block type can be validated"
+        or err == "Failed to create joint"
+        or err:sub(1, 28) == "Failed to parse json string:"
+        or err == "invalid uuid '" .. tostring(self:getTypeInstanceByName("string")) .. "'!"
+        or err == "Portal hook '" .. tostring(self:getTypeInstanceByName("string")) .. "' already exists for world " .. tostring(self:getTypeInstanceByName("<World>").id)
+        or tonumber(select(1, string.match(err, "bad argument #(%d+) to '.-' %((%w+) expected, got (%w+)%)")) or 0) > self.signature.paramsMax
+        or err == "Failed to create shape, parent joint is already in use."
+        or err == "AreaTrigger does not exist"
+    then
         return true
     end
     
@@ -272,4 +299,47 @@ function FunctionSignature:getReturnTypes( ... )
     end
 
     return self.signature.returns
+end
+
+function FunctionSignature:findAllParams( initialParams )
+
+    if not self:doParamsWork(initialParams) then
+        self:error("Initial parameters do not work!", initialParams)
+        self:error("Signature:", self.signature)
+        error("Initial parameters do not work!")
+    end
+
+    local allParams = {}
+    for i, initialParam in ipairs(initialParams) do
+        allParams[i] = { initialParam }
+    end
+
+end
+
+function FunctionSignature:doParamsWork( params )
+
+    local success, err = pcall(self.func, unpack(params))
+    self:debug(success, err)
+
+    if success then
+        return true
+    end
+
+    self:debug(tonumber(select(1, string.match(err, "bad argument #(%d+) to '.-' %((%w+) expected, got (%w+)%)")) or 0) > self.signature.paramsMax)
+    self:debug(tonumber(select(1, string.match(err, "bad argument #(%d+) to '.-' %((%w+) expected, got (%w+)%)")) or 0), self.signature.paramsMax)
+    
+    if self:shouldIgnoreRuntimeError(err) then
+        return true
+    end
+
+    if string.match(err, "Expected (%d+) arguments %(got (%d+)%)")
+        or string.match(err, "Expected at least (%d+) arguments %(got (%d+)%)")
+        or string.match(err, "Expected at most (%d+) arguments %(got (%d+)%)")
+        or string.match(err, "bad argument #(%d+) to '.-' %((%w+) expected, got (%w+)%)")
+    then
+        return false
+    end
+
+    error("Unknown error: " .. err)
+    return true
 end

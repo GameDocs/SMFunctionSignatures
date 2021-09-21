@@ -29,6 +29,7 @@ function SigPart:sv_generateSignatures()
         ["integer"] = 8,
         ["string"] = "sample text",
         ["table"] = {foo = "bar"},
+        ["userdata"] = self.shape,
         ["<Uuid>"] = sm.uuid.new("b4ae94a6-d11c-4503-9b87-1c008ab8d2df"),
         ["<Vec3>"] = sm.vec3.new(1, 1, 1),
         ["<Quat>"] = sm.quat.identity(),
@@ -46,6 +47,7 @@ function SigPart:sv_generateSignatures()
         ["<Player>"] = sm.player.getAllPlayers()[1],
         ["<Character>"] = sm.player.getAllPlayers()[1].character,
         ["<Joint>"] = self.shape:createJoint(sm.uuid.new("4a1b886b-913e-4aad-b5b6-6e41b0db23a6"), self.shape.localPosition + sm.vec3.new(0, 0, 1), sm.vec3.new(0, 0, 1)),
+        ["piston"] = self.shape:createJoint(sm.uuid.new("260b4597-f1ac-409c-8e6b-90c998c5fe94"), self.shape.localPosition + sm.vec3.new(0, 1, 1), sm.vec3.new(0, 0, 1)),
         ["<Quest>"] = nil, -- sm.quest.addQuest(sm.uuid.new("4f5c93bb-632b-4036-9dde-10ff1f40bd1c"))
         ["<AreaTrigger>"] = sm.areaTrigger.createAttachedBox(self.interactable, sm.vec3.new(1, 1, 1), sm.vec3.new(0, 0, 1), sm.quat.identity()),
         ["<Portal>"] = sm.portal.createPortal(sm.vec3.new(1, 1, 1)),
