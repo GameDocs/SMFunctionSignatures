@@ -79,29 +79,10 @@ function FunctionSignature:generate()
     self:findParamsMax()
     self:debug("paramsMax =", self.signature.paramsMax)
 
-    local workingParams = {}
+    local initialParams = self:findInitialParams()
+    self:debug("Initial parameters =", initialParams)
 
-    -- Fill it with values we know (most likely) won't work
-    for i = 1, self.signature.paramsMax do
-        workingParams[i] = true
-    end
-
-    for i = 1, self.signature.paramsMax do
-        local complete, argument, instance = self:findWorkingParams(workingParams)
-
-        if complete == -1 then
-            -- An error occured that can't be fixed by using different parameters
-            return self.signature
-        elseif complete then
-            break
-        else
-            workingParams[argument] = instance
-        end
-    end
-
-    self:debug("Working parameters:", workingParams)
-
-    self:getReturnTypes(unpack(workingParams))
+    self:getReturnTypes(unpack(initialParams))
 
     return self.signature
 end
@@ -187,43 +168,69 @@ function FunctionSignature:findParamsMax()
     error("Failed to get maximum amount of parameters: " .. "expected=" .. expected .. ", got=" .. got .. ", full=" .. tostring(err))
 end
 
-function FunctionSignature:findWorkingParams( workingParams )
-    -- Make a copy of the parameters that work
-    local params = {}
-    for k, v in ipairs(workingParams) do
-        params[k] = v
-    end
+function FunctionSignature:findInitialParams()
 
-
-    self:debug("Running with", params)
-    
-    -- The function might return multiple parameters
-    local result = { pcall(self.func, unpack(params)) }
-    self:debug(result)
-
-    if result[1] then
-        self:debug("Success", result[2])
-        return true
-    else
-        local err = result[2]
-
-        if not self:shouldIgnoreRuntimeError(err) then
-            local argument, expected, got = string.match(err, "bad argument #(%d+) to '.-' %((%w+) expected, got (%w+)%)")
-            
-            if expected == nil or got == nil then
-                self:error("Failed trying amount of parameters of " .. tostring(i) .. ": " .. "expected=" .. tostring(expected) .. ", got=" .. tostring(got) .. ", full=" .. tostring(err))
-                return -1
-            end
-            
-            self:debug("Trying to find instance of type", expected)
-            local instance = self:getTypeInstanceByName(expected) or self:getTypeInstanceByName("<" .. expected .. ">") or expected
-            self:debug("Found", instance)
-
-            return false, tonumber(argument), instance
+    local function try( initialParams )
+        -- Make a copy of the parameters that work
+        local params = {}
+        for k, v in ipairs(initialParams) do
+            params[k] = v
         end
 
-        return -1
+
+        self:debug("Running with", params)
+        
+        -- The function might return multiple parameters
+        local result = { pcall(self.func, unpack(params)) }
+        self:debug(result)
+
+        if result[1] then
+            self:debug("Success", result[2])
+            return true
+        else
+            local err = result[2]
+
+            if not self:shouldIgnoreRuntimeError(err) then
+                local argument, expected, got = string.match(err, "bad argument #(%d+) to '.-' %((%w+) expected, got (%w+)%)")
+                
+                if expected == nil or got == nil then
+                    self:error("Failed trying amount of parameters of " .. tostring(i) .. ": " .. "expected=" .. tostring(expected) .. ", got=" .. tostring(got) .. ", full=" .. tostring(err))
+                    return -1
+                end
+                
+                self:debug("Trying to find instance of type", expected)
+                local instance = self:getTypeInstanceByName(expected) or self:getTypeInstanceByName("<" .. expected .. ">") or expected
+                self:debug("Found", instance)
+
+                return false, tonumber(argument), instance
+            end
+
+            return -1
+        end
     end
+
+    local initialParams = {}
+
+    -- Fill it with values we know (most likely) won't work
+    for i = 1, self.signature.paramsMax do
+        initialParams[i] = true
+    end
+
+    -- Repeatedly try calling the function, changing the parameter when the error tells us to
+    for i = 1, self.signature.paramsMax do
+        local complete, argument, instance = try(initialParams)
+
+        if complete == -1 then
+            -- An error occured that can't be fixed by using different parameters
+            return self.signature
+        elseif complete then
+            break
+        else
+            initialParams[argument] = instance
+        end
+    end
+
+    return initialParams
 end
 
 function FunctionSignature:shouldIgnoreRuntimeError( err )
