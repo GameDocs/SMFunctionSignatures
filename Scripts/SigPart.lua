@@ -30,6 +30,7 @@ function SigPart:sv_generateSignatures()
         ["string"] = "sample text",
         ["table"] = {foo = "bar"},
         ["userdata"] = self.shape,
+        ["function"] = function() end,
         ["<Uuid>"] = sm.uuid.new("b4ae94a6-d11c-4503-9b87-1c008ab8d2df"),
         ["<Vec3>"] = sm.vec3.new(1, 1, 1),
         ["<Quat>"] = sm.quat.identity(),

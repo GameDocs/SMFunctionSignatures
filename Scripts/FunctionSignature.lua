@@ -9,6 +9,11 @@ function FunctionSignature.new( func, name, types, environment )
     object.types = types
     object.environment = environment
 
+    object.typesCount = 0
+    for k, v in pairs(types) do
+        object.typesCount = object.typesCount + 1
+    end
+
     object.signature = {
         paramsMin = nil,
         paramsMax = nil
@@ -309,10 +314,12 @@ function FunctionSignature:findAllParams( initialParams )
         error("Initial parameters do not work!")
     end
 
-    -- Keep track of all parameters' types that we know work
-    local allParamTypes = {}
+    -- Keep track of all parameters that we know work
+    local allParams = {}
     for i, initialParam in ipairs(initialParams) do
-        allParamTypes[i] = {}
+        allParams[i] = {
+            types = {}
+        }
     end
 
     for i = 1, #initialParams do
@@ -327,12 +334,21 @@ function FunctionSignature:findAllParams( initialParams )
             currentParams[i] = paramInstance
 
             if self:doParamsWork(currentParams) then
-                table.insert(allParamTypes[i], paramType)
+                table.insert(allParams[i].types, paramType)
             end
+        end
+
+        self:debug("abcdef", #allParams[i].types, self.typesCount)
+        if #allParams[i].types == self.typesCount then
+            allParams[i].anyType = true
+        end
+
+        if i > self.signature.paramsMin then
+            allParams[i].optional = true
         end
     end
 
-    return allParamTypes
+    return allParams
 
 end
 
