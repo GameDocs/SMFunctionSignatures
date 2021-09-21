@@ -309,15 +309,36 @@ function FunctionSignature:findAllParams( initialParams )
         error("Initial parameters do not work!")
     end
 
-    local allParams = {}
+    -- Keep track of all parameters' types that we know work
+    local allParamTypes = {}
     for i, initialParam in ipairs(initialParams) do
-        allParams[i] = { initialParam }
+        allParamTypes[i] = {}
     end
+
+    for i = 1, #initialParams do
+        -- Copy the initial parameters
+        local currentParams = {}
+        for i, initialParam in ipairs(initialParams) do
+            -- self:debug(i, initialParam)
+            currentParams[i] = initialParam
+        end
+
+        for paramType, paramInstance in pairs(self.types) do
+            currentParams[i] = paramInstance
+
+            if self:doParamsWork(currentParams) then
+                table.insert(allParamTypes[i], paramType)
+            end
+        end
+    end
+
+    return allParamTypes
 
 end
 
 function FunctionSignature:doParamsWork( params )
 
+    self:debug("Testing if these parameters work:", params)
     local success, err = pcall(self.func, unpack(params))
     self:debug(success, err)
 
@@ -325,9 +346,6 @@ function FunctionSignature:doParamsWork( params )
         return true
     end
 
-    self:debug(tonumber(select(1, string.match(err, "bad argument #(%d+) to '.-' %((%w+) expected, got (%w+)%)")) or 0) > self.signature.paramsMax)
-    self:debug(tonumber(select(1, string.match(err, "bad argument #(%d+) to '.-' %((%w+) expected, got (%w+)%)")) or 0), self.signature.paramsMax)
-    
     if self:shouldIgnoreRuntimeError(err) then
         return true
     end
@@ -336,6 +354,8 @@ function FunctionSignature:doParamsWork( params )
         or string.match(err, "Expected at least (%d+) arguments %(got (%d+)%)")
         or string.match(err, "Expected at most (%d+) arguments %(got (%d+)%)")
         or string.match(err, "bad argument #(%d+) to '.-' %((%w+) expected, got (%w+)%)")
+        or err:sub(1, 21) == "Unsupported userdata:"
+        or string.match(err, "cannot apply impulse on '.-'")
     then
         return false
     end
