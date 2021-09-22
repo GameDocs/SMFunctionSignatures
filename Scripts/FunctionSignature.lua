@@ -73,7 +73,7 @@ end
 
 function FunctionSignature:generate()
     if self:hasEnvironmentErrors() then
-        return self.signature
+        return false, self.signature
     end
 
     self:findParamsMin()
@@ -85,7 +85,7 @@ function FunctionSignature:generate()
     local initialParams = self:findInitialParams()
     self:debug("Initial parameters =", initialParams)
     if not initialParams then
-        return self.signature
+        return false, self.signature
     end
 
     self:getReturnTypes(unpack(initialParams))
@@ -93,7 +93,7 @@ function FunctionSignature:generate()
     self.signature.params = self:findAllParams(initialParams)
     self:debug("All parameters found =", self.signature.params)
 
-    return self.signature
+    return true, self.signature
 end
 
 function FunctionSignature:hasEnvironmentErrors()
