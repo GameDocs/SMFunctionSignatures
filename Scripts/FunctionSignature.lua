@@ -271,6 +271,7 @@ function FunctionSignature:shouldIgnoreRuntimeError( err )
         or tonumber(select(1, string.match(err, "bad argument #(%d+) to '.-' %((%w+) expected, got (%w+)%)")) or 0) > self.signature.paramsMax
         or err == "Failed to create shape, parent joint is already in use."
         or err == "AreaTrigger does not exist"
+        or err == "Failed to create effect: '" .. tostring(self:getTypeInstanceByName("string")) .. "'"
     then
         return true
     end

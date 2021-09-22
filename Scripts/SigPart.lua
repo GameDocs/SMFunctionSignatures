@@ -11,13 +11,30 @@ SigPart.colorHighlight = sm.color.new( 0x606060ff )
 function SigPart:client_onInteract( character, state )
     if not state then return end
 
+    self.allTypes = self:getClientTypes()
+
     self.network:sendToServer("sv_onInteract")
 end
 
 function SigPart:sv_onInteract()
-    self:generateSignatures(self:getServerTypes(), {
+    self.allTypes = self:getServerTypes(self.allTypes)
+
+    self.gamemode = self:getGamemode()
+
+    -- self:sv_generateSignatures()
+    self.network:sendToClients("cl_generateSignatures")
+end
+
+function SigPart:sv_generateSignatures()
+    self:generateSignatures(self.allTypes, {
         type = "part",
-        gamemode = self:getGamemode(),
-        side = "server"
+        gamemode = self.gamemode
+    })
+end
+
+function SigPart:cl_generateSignatures()
+    self:generateSignatures(self.allTypes, {
+        type = "part",
+        gamemode = self.gamemode
     })
 end
