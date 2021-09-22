@@ -86,8 +86,6 @@ function SigPart:sv_generateSignatures()
                 -- else
                 --     errorsFound[CURRENT_NAME] = returned
                 -- end
-            else
-                signatures[k] = v
             end
         end
 
