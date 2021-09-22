@@ -35,18 +35,11 @@ function FunctionSignature:getTypeName( variable )
     end
 
     if typename == "table" then
-        local tabletypes = "table {"
-
-        for k, v in ipairs(variable) do
-            tabletypes = tabletypes .. self:getTypeName(v)
-
-            -- Add separator
-            if k ~= #variable then
-                tabletypes = tabletypes .. ", "
-            end
+        if not variable[1] then
+            return typename
         end
 
-        tabletypes = tabletypes .. "}"
+        local tabletypes = "table {" .. self:getTypeName(variable[1]) .. "}"
 
         return tabletypes
     end
