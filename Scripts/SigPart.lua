@@ -21,7 +21,7 @@ function SigPart:sv_onInteract()
 
     self.gamemode = self:getGamemode()
 
-    -- self:sv_generateSignatures()
+    self:sv_generateSignatures()
     self.network:sendToClients("cl_generateSignatures")
 end
 
@@ -37,4 +37,10 @@ function SigPart:cl_generateSignatures()
         type = "part",
         gamemode = self.gamemode
     })
+
+    self:resetAccidentalChanges()
+end
+
+function SigPart:client_onRefresh()
+    self:resetAccidentalChanges()
 end

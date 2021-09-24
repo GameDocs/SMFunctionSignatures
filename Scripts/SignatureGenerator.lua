@@ -88,6 +88,8 @@ function SignatureGenerator:generateSignatures( types, environment )
     environment.gamemode = environment.gamemode or self:getGamemode()
     environment.side = environment.side or self:getSide()
 
+    local failed = {}
+
     local function traverse(tbl, prefix)
         local signatures = {}
 
@@ -102,6 +104,10 @@ function SignatureGenerator:generateSignatures( types, environment )
                 local funcSig = FunctionSignature.new(v, childNodePrefix, types, environment)
                 local success = false
                 success, signatures[k] = funcSig:generate()
+
+                if not success then
+                    table.insert(failed, childNodePrefix)
+                end
             end
         end
 
@@ -116,8 +122,37 @@ function SignatureGenerator:generateSignatures( types, environment )
     smCopy.terrainData = nil
     smCopy.body = nil
 
-    local signatures = traverse(smCopy, "sm")
+    local main_signatures = traverse(smCopy, "sm")
+
+    local userdata_signatures = nil
+    if getmetatable then
+        userdata_signatures = {}
+
+        for typeName, typeInstance in pairs(types) do
+            local mt = getmetatable(typeInstance)
+
+            if mt and mt.__typeid then
+                userdata_signatures[typeName] = traverse(mt, typeName)
+            end
+        end
+    end
+
+    local signatures = {
+        failed = failed,
+        main_signatures = main_signatures,
+        userdata_signatures = userdata_signatures
+    }
+
     print(signatures)
+
     sm.json.save(signatures, ("$CONTENT_7712f974-cb87-4d9e-8f9c-7e81a9829a13/out/signatures.%s.%s.%s.json"):format(environment.type, environment.gamemode, environment.side))
 
+end
+
+function SignatureGenerator:resetAccidentalChanges()
+    sm.player.getAllPlayers()[1].character:setLockingInteractable(nil)
+    sm.gui.hideGui( false )
+    sm.camera.setCameraState( sm.camera.state.default )
+    sm.localPlayer.setLockedControls( false )
+    sm.gui.endFadeToBlack(1)
 end

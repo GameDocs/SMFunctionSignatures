@@ -145,7 +145,7 @@ function FunctionSignature:findParamsMin()
         return expected
     end
 
-    error("Failed to get minimum amount of parameters: " .. "expected=" .. expected .. ", got=" .. got .. ", full=" .. tostring(err))
+    error("Failed to get minimum amount of parameters: " .. "expected=" .. tostring(expected) .. ", got=" .. tostring(got) .. ", full=" .. tostring(err))
 end
 
 function FunctionSignature:findParamsMax()
@@ -174,7 +174,7 @@ function FunctionSignature:findParamsMax()
         return expected
     end
 
-    error("Failed to get maximum amount of parameters: " .. "expected=" .. expected .. ", got=" .. got .. ", full=" .. tostring(err))
+    error("Failed to get maximum amount of parameters: " .. "expected=" .. tostring(expected) .. ", got=" .. tostring(got) .. ", full=" .. tostring(err))
 end
 
 function FunctionSignature:findInitialParams()
@@ -272,6 +272,8 @@ function FunctionSignature:shouldIgnoreRuntimeError( err )
         or err == "Failed to create shape, parent joint is already in use."
         or err == "AreaTrigger does not exist"
         or err == "Failed to create effect: '" .. tostring(self:getTypeInstanceByName("string")) .. "'"
+        or err == "Failed to connect the interactable with the joint."
+        or err == "Failed to connect the interactable with the joint's interactable."
     then
         return true
     end
