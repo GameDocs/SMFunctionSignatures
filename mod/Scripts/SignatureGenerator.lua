@@ -136,6 +136,9 @@ function SignatureGenerator:generateSignatures( types, environment )
         end
     end
 
+    -- Make sure the array is sorted so it doesn't clog up the git
+    table.sort(failed)
+
     local signatures = {
         failed = failed,
         main_signatures = main_signatures,

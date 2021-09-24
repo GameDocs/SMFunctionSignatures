@@ -335,7 +335,6 @@ function FunctionSignature:findAllParams( initialParams )
             end
         end
 
-        self:debug("abcdef", #allParams[i].types, self.typesCount)
         if #allParams[i].types == self.typesCount then
             allParams[i].anyType = true
         end
@@ -343,6 +342,8 @@ function FunctionSignature:findAllParams( initialParams )
         if i > self.signature.paramsMin then
             allParams[i].optional = true
         end
+
+        table.sort(allParams[i])
     end
 
     return allParams
