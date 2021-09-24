@@ -274,6 +274,7 @@ function FunctionSignature:shouldIgnoreRuntimeError( err )
         or err == "Failed to create effect: '" .. tostring(self:getTypeInstanceByName("string")) .. "'"
         or err == "Failed to connect the interactable with the joint."
         or err == "Failed to connect the interactable with the joint's interactable."
+        or err:sub(1, 69) == "Invalid melee attack source. Expected a Player or Unit, but received:"
     then
         return true
     end

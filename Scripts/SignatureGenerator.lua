@@ -120,7 +120,6 @@ function SignatureGenerator:generateSignatures( types, environment )
     end
 
     smCopy.terrainData = nil
-    smCopy.body = nil
 
     local main_signatures = traverse(smCopy, "sm")
 
